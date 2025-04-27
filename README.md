@@ -104,5 +104,4 @@ mkdir linux
 pkgctl repo clone linux
 cd linux
 makechrootpkg -c -r ~/archbuild -- --skipinteg --noconfirm --nocheck --clean --cleanbuild
-cd ..
 ```
