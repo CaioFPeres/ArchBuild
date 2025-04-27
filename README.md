@@ -80,7 +80,7 @@ mkdir -p ~/archbuild
 mkarchroot ~/archbuild/root base-devel
 ```
 
-Create the packages folder:
+Create the packages folder inside ~/archbuild:
 ``` bash
 mkdir packages
 ```
