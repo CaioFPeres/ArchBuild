@@ -71,6 +71,7 @@ done
 
 exec /usr/bin/gcc -O2 -pipe -march=skylake -mtune=skylake "${ARGS[@]}"
 ```
+Make them both executable! (chmod 777 /usr/local/bin/cc and /usr/local/bin/gcc)
 
 Now, create a chroot environment:
 
