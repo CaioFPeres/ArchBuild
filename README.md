@@ -132,6 +132,9 @@ Now, for the Arch ISO, copy default releng profile:
 cp -r /usr/share/archiso/configs/releng ~/archbuild/archiso
 ```
 
+Copy all .zst files from each package to `archbuild/archiso/releng/airootfs/packages/`. \
+Copy a list of all your packages names to `/home/builder/archbuild/archiso/releng/`, and name the file `packages.x86_64`.
+
 Create your custom repository:
 ```bash
 repo-add custompkgs.db.tar.zst *.pkg.tar.zst
