@@ -1,6 +1,6 @@
 # Building Arch Linux from Source with custom flags
 
-First, create a Arch user that is different from root, and set this permission for it on /etc/sudoers:
+First, create an Arch user that is different from root, and set this permission for it on /etc/sudoers:
 
 ``` bash
 ##
@@ -42,7 +42,8 @@ DEBUG_CXXFLAGS="$DEBUG_CFLAGS"
 
 These flags will work for most of the arch packages, but some will still force their own flags. For this reason, we *must* make a detour in gcc and cc, to remove their imposed flags, by setting our desired architecture (skylake in my case):
 
-Create this file at /usr/local/bin/cc
+Create two files like this at /usr/local/bin/cc and /usr/local/bin/gcc, but for gcc change the exec call to gcc. Create them both inside and outside of chroot:
+
 ```bash
 #!/bin/bash
 
@@ -57,21 +58,37 @@ done
 exec /usr/bin/cc -O2 -pipe -march=skylake -mtune=skylake "${ARGS[@]}"
 ```
 
-And this at /usr/local/bin/gcc
-```bash
+Now, create this for every python-config you have (which python-config) at /usr/local/bin/ both inside and outside of chroot. This is just for the python related package `libnewt`:
+``` bash
 #!/bin/bash
 
-ARGS=()
-for arg in "$@"; do
-  case "$arg" in
-    -march=*|-mtune=*) ;;
-    *) ARGS+=("$arg") ;;
-  esac
-done
-
-exec /usr/bin/gcc -O2 -pipe -march=skylake -mtune=skylake "${ARGS[@]}"
+if [[ "$1" == "--cflags" ]]; then
+    # Call the real python-config, but strip -march and -mtune
+    /usr/bin/python3.13-config --cflags | sed -E 's/-march=[^[:space:]]+//g' | sed -E 's/-mtune=[^[:space:]]+//g'
+else
+    /usr/bin/python3.13-config "$@"
+fi
 ```
-Make them both executable! (chmod 777 /usr/local/bin/cc and /usr/local/bin/gcc)
+
+Make them all executable! (chmod 777 *)
+
+Next, set your `.gitconfig` to ignore ssh calls and use HTTP/HTTPS instead:
+``` bash
+[http]
+        version = HTTP/1.1
+        postBuffer = 524288000
+        sslVerify = false
+        lowSpeedLimit = 0
+        lowSpeedTime = 999999
+        sslBackend = openssl
+        curloptResolve = git.savannah.gnu.org:443:209.51.188.168
+[url "https://gitlab.archlinux.org/"]
+        insteadOf = git@gitlab.archlinux.org:
+[url "https://git.savannah.gnu.org/"]
+        insteadOf = git@git.savannah.gnu.org:
+[url "http://git.savannah.gnu.org/"]
+        insteadOf = https://git.savannah.gnu.org/
+```
 
 Now, create a chroot environment:
 
@@ -85,23 +102,54 @@ Create the packages folder inside ~/archbuild:
 mkdir packages
 ```
 
-Now, inside ~/archbuild create the script that will build everything:
+Now, inside ~/archbuild create the script that will build everything.
+Invoke this script by passing the name of the file containing all packages that you want to build. If you want to build all current system packages, first run:
+`pacman -Qq > packages.txt`
 
+If you want to build only the essentials(base, base-devel, linux and linux-firmware), pass as argument the file included in this repository called base_base-devel.txt.
+
+Script to make all packages:
 ``` bash
 cd packages
 
 # loop for every package in pacman, and build with chroot
-for pkg in $(pacman -Qq); do
+for pkg in $(cat $1); do
     if [ -d "$pkg" ]; then continue; fi
     echo "Cloning and building: $pkg"
     pkgctl repo clone "$pkg" && cd "$pkg" || continue
-    makechrootpkg -c -r ~/archbuild -- --skipinteg --noconfirm --nocheck --clean --cleanbuild
+
+    if [ "$pkg" = "texinfo" ]; then # patch for texinfo package
+      sed -i -e 's|./configure --prefix=/usr|./configure --prefix=/usr -C CFLAGS="-march=skylake -mtune=skylake" PERL_EXT_CFLAGS="-march=skylake -mtune=skylake"|g' PKGBUILD
+    fi
+
+    makechrootpkg -c -r ~/archbuild -- --skipinteg --noconfirm --nocheck --clean --cleanbuild > build.log
     cd ..
 done
+```
 
-# For Linux Kernel
-mkdir linux
-pkgctl repo clone linux
-cd linux
-makechrootpkg -c -r ~/archbuild -- --skipinteg --noconfirm --nocheck --clean --cleanbuild
+Now, for the Arch ISO, copy default releng profile:
+```bash
+cp -r /usr/share/archiso/configs/releng ~/archbuild/archiso
+```
+
+Create your custom repository:
+```bash
+repo-add custompkgs.db.tar.zst *.pkg.tar.zst
+```
+
+Edit profiledef.sh by allowing only UEFI mode (so it won't ask for syslinux):
+```bash
+bootmodes=('uefi-x64.grub.esp')
+```
+
+Create your custom repo on pacman.conf:
+```bash
+[custompkgs]
+SigLevel = Never
+Server = file:///home/builder/archbuild/archiso/releng/airootfs/packages/
+```
+
+To generate the ISO, run inside releng:
+```bash
+mkarchiso -v . > iso.log
 ```
