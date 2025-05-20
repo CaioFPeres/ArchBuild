@@ -103,10 +103,12 @@ mkdir packages
 ```
 
 Now, inside ~/archbuild create the script that will build everything.
-Invoke this script by passing the name of the file containing all packages that you want to build. If you want to build all current system packages, first run:
+Invoke this script by passing the name of the file containing all packages that you want to build. 
+If you want to build all current system packages, first run:
 `pacman -Qq > packages.txt`
 
 If you want to build only the essentials(base, base-devel, linux and linux-firmware), pass as argument the file included in this repository called base_base-devel.txt.
+Otherwise, pass packages.txt.
 
 Script to make all packages:
 ``` bash
@@ -133,19 +135,16 @@ cp -r /usr/share/archiso/configs/releng ~/archbuild/archiso
 ```
 
 Copy all .zst files from each package to `archbuild/archiso/releng/airootfs/packages/`. \
-Copy a list of all your packages names to `/home/builder/archbuild/archiso/releng/`, and name the file `packages.x86_64`.
+Copy a list of all your built packages names to `/home/builder/archbuild/archiso/releng/`, and name the file `packages.x86_64`.
+Don't forget to add syslinux to the list, even if you didn't build it, since it will be needed when creating the ISO.
+Any package that you add that you didn't build will be downloaded through pacman.
 
 Create your custom repository:
 ```bash
 repo-add custompkgs.db.tar.zst *.pkg.tar.zst
 ```
 
-Edit profiledef.sh by allowing only UEFI mode (so it won't ask for syslinux):
-```bash
-bootmodes=('uefi-x64.grub.esp')
-```
-
-Create your custom repo on pacman.conf:
+Create your custom repo on pacman.conf. Place this ABOVE everything else, to make sure it gets chosen before any other remote repo:
 ```bash
 [custompkgs]
 SigLevel = Never
@@ -156,3 +155,7 @@ To generate the ISO, run inside releng:
 ```bash
 mkarchiso -v . > iso.log
 ```
+
+# Important
+When installing the ISO, make sure to copy the pacman.conf to /etc/pacman.conf, otherwise it will create a new chroot with default settings, without your pacman.conf. Make sure it is not overriden.
+Also, always check twice if your packages are really being chosen over remote. You can do so by using `pacman -Qi package` and checking stuff like packaging date, and Packager. If you didn't set a Packager name for you, it should be saying "Unknown Packager".

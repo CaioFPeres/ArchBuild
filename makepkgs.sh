@@ -10,6 +10,6 @@ for pkg in $(cat $1); do
       sed -i -e 's|./configure --prefix=/usr|./configure --prefix=/usr -C CFLAGS="-march=skylake -mtune=skylake" PERL_EXT_CFLAGS="-march=skylake -mtune=skylake"|g' PKGBUILD
     fi
 
-    makechrootpkg -c -r ~/archbuild -- --skipinteg --noconfirm --nocheck --clean --cleanbuild
+    makechrootpkg -c -r ~/archbuild -- --skipinteg --noconfirm --nocheck --clean --cleanbuild > build.log
     cd ..
 done
